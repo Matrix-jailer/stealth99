@@ -6,3 +6,4 @@ undetected-chromedriver==3.5.5
 tls-client==0.2.2
 requests==2.32.3
 pydantic==2.7.1
+blinker==1.7.0
