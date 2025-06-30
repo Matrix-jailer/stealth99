@@ -296,17 +296,18 @@ class StealthGatewayScanner:
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await asyncio.sleep(2)
             content = await page.content()
-            if any(k in content for k in CAPTCHA_KEYWORDS):
-                data["captcha"].update(CAPTCHA_KEYWORDS)
-            if any(k in content for k in THREE_DS_KEYWORDS):
+            for captcha_type, keywords in CAPTCHA_KEYWORDS.items():
+                if any(kw.lower() in content.lower() for kw in keywords):
+                    data["captcha"].add(captcha_type)
+            if any(pattern.search(content) for pattern in THREE_DS_KEYWORDS):
                 data["three_ds"] = True
-            for plat, indicators in PLATFORM_KEYWORDS.items():
-                if any(k in content for k in indicators):
-                    data["platform"] = plat
+            for plat_keyword, plat_name in PLATFORM_KEYWORDS.items():
+                if plat_keyword.lower() in content.lower():
+                    data["platform"] = plat_name
             for name, patterns in PAYMENT_GATEWAY_KEYWORDS.items():
-                if any(k in content for k in patterns):
+                if any(p.search(content) for p in patterns):
                     data["gateways"].add(name)
-            if any(k in content for k in GRAPHQL_KEYWORDS):
+            if any(p.search(content) for p in GRAPHQL_KEYWORDS):
                 data["graphql"] = True
             if "__cf_chl" in url or "cf_clearance" in content:
                 data["cloudflare"] = True
@@ -315,6 +316,7 @@ class StealthGatewayScanner:
         finally:
             await page.close()
         return data
+
 
     async def playwright_worker(self, browser, queue: asyncio.Queue, results: List[Dict[str, Any]], semaphore: asyncio.Semaphore):
         while not queue.empty():
