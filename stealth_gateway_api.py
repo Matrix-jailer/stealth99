@@ -61,28 +61,29 @@ class StealthGatewayScanner:
                 href = await el.get_attribute("href") or await el.get_attribute("action")
                 if href:
                     full = urljoin(base_url, href)
-                    if self.is_relevant_url(full):
+                    if self.is_relevant_url(full) and full not in self.visited:
                         urls.add(full)
                 onclick = await el.get_attribute("onclick")
                 if onclick:
                     matches = re.findall(r'"(https?://[^"]+|/[^"\s]+)"', onclick)
                     for m in matches:
                         full = urljoin(base_url, m)
-                        if self.is_relevant_url(full):
+                        if self.is_relevant_url(full) and full not in self.visited:
                             urls.add(full)
         return urls
 
-    async def analyze_page_playwright(self, page, url: str) -> Dict[str, Any]:
+    async def analyze_page_playwright(self, browser, url: str) -> Dict[str, Any]:
         data = {
             "gateways": set(), "captcha": set(), "three_ds": False,
             "cloudflare": False, "platform": None, "graphql": False
         }
+        page = await browser.new_page()
+        await page.add_init_script(path="stealth.min.js")
         try:
             await page.goto(url, timeout=30000)
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             await asyncio.sleep(2)
             content = await page.content()
-            # --- SHADOW DOM & iframe exploration can be added here if needed ---
             if any(k in content for k in CAPTCHA_KEYWORDS):
                 data["captcha"].update(CAPTCHA_KEYWORDS)
             if any(k in content for k in THREE_DS_KEYWORDS):
@@ -98,22 +99,34 @@ class StealthGatewayScanner:
             if "__cf_chl" in url or "cf_clearance" in content:
                 data["cloudflare"] = True
         except Exception as e:
-            logger.error(f"Playwright page error: {e}")
+            logger.error(f"Playwright page error ({url}): {e}")
+        finally:
+            await page.close()
         return data
 
-    async def playwright_worker(self, browser, url, results):
-        page = await browser.new_page()
-        await page.add_init_script(path="stealth.min.js")
-        result = await self.analyze_page_playwright(page, url)
-        results.append(result)
-        await page.close()
+    async def playwright_worker(self, browser, queue: asyncio.Queue, results: List[Dict[str, Any]], semaphore: asyncio.Semaphore):
+        while not queue.empty():
+            url = await queue.get()
+            if url in self.visited:
+                queue.task_done()
+                continue
+            self.visited.add(url)
+            async with semaphore:
+                result = await self.analyze_page_playwright(browser, url)
+                results.append(result)
+            queue.task_done()
 
-    async def playwright_scan(self, urls: Set[str]) -> List[Dict[str, Any]]:
+    async def playwright_scan(self, urls: Set[str], concurrency: int = 5) -> List[Dict[str, Any]]:
         results = []
+        queue = asyncio.Queue()
+        for u in urls:
+            await queue.put(u)
+
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
-            tasks = [self.playwright_worker(browser, u, results) for u in urls]
-            await asyncio.gather(*tasks)
+            semaphore = asyncio.Semaphore(concurrency)
+            workers = [self.playwright_worker(browser, queue, results, semaphore) for _ in range(concurrency)]
+            await asyncio.gather(*workers)
             await browser.close()
         return results
 
@@ -126,6 +139,9 @@ class StealthGatewayScanner:
         results = []
         try:
             for url in urls:
+                if url in self.visited:
+                    continue
+                self.visited.add(url)
                 driver.get(url)
                 time.sleep(3)
                 raw = driver.page_source
@@ -162,10 +178,9 @@ class StealthGatewayScanner:
             candidate_urls.update(found)
             await browser.close()
 
-        playwright_results = await self.playwright_scan(candidate_urls)
+        playwright_results = await self.playwright_scan(candidate_urls, concurrency=5)
         selenium_results = self.selenium_wire_scan(candidate_urls)
 
-        # Aggregate
         result = ScanResult(
             url=url,
             gateways=[],
