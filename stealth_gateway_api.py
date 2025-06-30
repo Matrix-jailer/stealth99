@@ -11,6 +11,7 @@ Stealth Gateway Detection API
 import asyncio
 import time
 import re
+from typing import List, Dict, Set, Any, Optional
 from typing import List, Dict, Set, Any
 from urllib.parse import urljoin, urlparse
 from fastapi import FastAPI, Query
