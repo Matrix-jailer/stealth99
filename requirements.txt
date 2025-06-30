@@ -1,0 +1,8 @@
+fastapi==0.115.2
+uvicorn==0.23.2
+playwright==1.48.0
+selenium-wire==5.1.0
+undetected-chromedriver==3.5.5
+tls-client==0.2.2
+requests==2.32.3
+pydantic==2.7.1
