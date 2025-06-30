@@ -209,7 +209,7 @@ CAPTCHA_KEYWORDS = {
     ]
 }
 
-THREE_D_SECURE_KEYWORDS = [re.compile(pattern, re.IGNORECASE) for pattern in [
+THREE_DS_KEYWORDS = [re.compile(pattern, re.IGNORECASE) for pattern in [
     r'three_d_secure', r'3dsecure', r'acs', r'acs_url', r'acsurl', r'redirect',
     r'secure-auth', r'three_d_secure_usage', r'challenge', r'3ds', r'3ds1', r'3ds2', r'tds', r'tdsecure',
     r'3d-secure', r'three-d', r'3dcheck', r'3d-auth', r'three-ds',
