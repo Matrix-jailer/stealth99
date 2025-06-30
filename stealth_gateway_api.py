@@ -169,7 +169,7 @@ PAYMENT_INDICATOR_REGEX = [
         "payment-options", "express-checkout", "quick-buy", "one-click-buy", "instant-purchase"
     ]
 ]
-CAPTCHA_PATTERNS = {
+CAPTCHA_KEYWORDS = {
     "reCaptcha": [
         "g-recaptcha", "recaptcha/api.js", "data-sitekey", "nocaptcha",
         "recaptcha.net", "www.google.com/recaptcha", "grecaptcha.execute",
