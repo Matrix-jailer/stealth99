@@ -250,7 +250,7 @@ class ScanResult(BaseModel):
     captcha: List[str]
     three_ds: bool
     cloudflare: bool
-    platform: str
+    platform: Optional[str] = None
     graphql: bool
     time_taken: float
 
