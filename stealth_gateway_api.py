@@ -20,6 +20,23 @@ from playwright.async_api import async_playwright
 import tls_client
 import logging
 
+class ScanResult(BaseModel):
+    url: str
+    gateways: List[str]
+    captcha: List[str]
+    three_ds: bool
+    cloudflare: bool
+    platform: Optional[str] = None
+    graphql: bool
+    time_taken: float
+
+class StealthGatewayScanner:
+    def __init__(self):
+        self.visited: Set[str] = set()
+        self.collected: Set[str] = set()
+        self.session = tls_client.Session(client_identifier="chrome_120")
+
+
 # --- PLACEHOLDER: Paste your keyword detection dicts from GhostAPIPRO v2 below ---
 PAYMENT_GATEWAY_KEYWORDS = {
     "stripe": [re.compile(pattern, re.IGNORECASE) for pattern in [
